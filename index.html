@@ -1,0 +1,3149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataPortal — Secure Access</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    :root {
+      --bg: #0a0d14;
+      --surface: #111827;
+      --surface2: #1a2235;
+      --surface3: #1e2a3a;
+      --border: rgba(99, 179, 237, 0.15);
+      --accent: #3b82f6;
+      --accent2: #6366f1;
+      --accent-glow: rgba(59, 130, 246, 0.3);
+      --green: #10b981;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --text: #f1f5f9;
+      --text2: #94a3b8;
+      --text3: #64748b;
+      --radius: 14px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+
+    html,
+    body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--surface);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--accent);
+      border-radius: 99px;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: radial-gradient(ellipse 80% 60% at 20% 10%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(99, 102, 241, 0.07) 0%, transparent 60%);
+    }
+
+    /* ── LOADING ── */
+    #loadingOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 13, 20, 0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+      gap: 20px;
+    }
+
+    #loadingOverlay.hidden {
+      display: none;
+    }
+
+    .loading-spinner {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 4px solid rgba(59, 130, 246, 0.2);
+      border-top-color: var(--accent);
+      animation: spin .8s linear infinite;
+    }
+
+    .loading-title {
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    .loading-sub {
+      font-size: 13px;
+      color: var(--text3);
+    }
+
+    .loading-bar-wrap {
+      width: 280px;
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .loading-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      width: 0%;
+      transition: width .2s;
+      border-radius: 99px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ── LOGIN ── */
+    #loginPage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .login-card {
+      background: rgba(17, 24, 39, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 44px;
+      width: 420px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 0 60px rgba(59, 130, 246, 0.12), 0 24px 48px rgba(0, 0, 0, 0.4);
+      animation: slideUp .5s ease;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .login-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .login-logo .icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .login-logo h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .login-logo p {
+      font-size: 12px;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+
+    .role-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+
+    .role-tab {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .role-tab.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    .role-tab:hover:not(.active) {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 7px;
+      font-weight: 500;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 13px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: all .2s;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      margin-top: 8px;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .btn-login:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px var(--accent-glow);
+    }
+
+    .login-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 14px;
+      display: none;
+    }
+
+    .default-creds {
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 10px;
+      background: rgba(59, 130, 246, 0.06);
+      border: 1px solid rgba(59, 130, 246, 0.12);
+      font-size: 12px;
+      color: var(--text3);
+      line-height: 1.7;
+    }
+
+    .default-creds strong {
+      color: var(--accent);
+    }
+
+    /* ── APP SHELL ── */
+    #app {
+      display: none;
+      height: 100vh;
+      flex-direction: column;
+    }
+
+    #app.visible {
+      display: flex;
+    }
+
+    .topbar {
+      height: 60px;
+      background: rgba(17, 24, 39, 0.95);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .topbar-logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .topbar h2 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      padding: 4px 12px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+
+    .badge.boss {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    .badge.employee {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .btn-logout {
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .btn-logout:hover {
+      background: rgba(239, 68, 68, 0.1);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .content {
+      flex: 1;
+      overflow: auto;
+      padding: 24px;
+    }
+
+    /* ── BOSS PANEL ── */
+    #bossPanel {
+      display: none;
+    }
+
+    #bossPanel.visible {
+      display: block;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      flex: 1;
+      min-width: 150px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+
+    .stat-card .label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      font-weight: 500;
+    }
+
+    .stat-card .value {
+      font-size: 28px;
+      font-weight: 800;
+      margin: 6px 0 2px;
+      letter-spacing: -1px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .stat-card .sub {
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 36px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .3s;
+      background: var(--surface);
+      margin-bottom: 16px;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.05);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+
+    .upload-zone .upload-icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+    }
+
+    .upload-zone h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .upload-zone p {
+      font-size: 13px;
+      color: var(--text3);
+    }
+
+    .upload-zone input {
+      display: none;
+    }
+
+    .upload-progress {
+      background: var(--surface2);
+      border-radius: 8px;
+      overflow: hidden;
+      height: 6px;
+      margin-top: 14px;
+      display: none;
+    }
+
+    .upload-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      width: 0%;
+      transition: width .15s;
+      border-radius: 8px;
+    }
+
+    .upload-status {
+      font-size: 12px;
+      color: var(--text3);
+      margin-top: 8px;
+      display: none;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .search-wrap input {
+      width: 100%;
+      padding: 10px 16px 10px 42px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      transition: all .2s;
+    }
+
+    .search-wrap input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .search-wrap .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text3);
+      font-size: 15px;
+    }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: 9px;
+      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    .btn-success {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .btn-success:hover {
+      background: rgba(16, 185, 129, 0.25);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.12);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.22);
+    }
+
+    .btn-warning {
+      background: rgba(245, 158, 11, 0.12);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .btn-warning:hover {
+      background: rgba(245, 158, 11, 0.22);
+    }
+
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: calc(100vh - 370px);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      background: var(--surface2);
+      padding: 13px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      white-space: nowrap;
+    }
+
+    thead th:first-child {
+      width: 50px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(99, 179, 237, 0.06);
+      transition: background .15s;
+    }
+
+    tbody tr:hover {
+      background: rgba(59, 130, 246, 0.04);
+    }
+
+    tbody td {
+      padding: 11px 16px;
+      color: var(--text);
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    tbody td:first-child {
+      color: var(--text3);
+      font-size: 11px;
+      cursor: default;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    tbody td:last-child {
+      cursor: default;
+    }
+
+    .data-cell {
+      cursor: pointer;
+      transition: color .15s;
+    }
+
+    .data-cell:hover {
+      color: var(--accent);
+    }
+
+    .action-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-icon {
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .btn-edit {
+      background: rgba(59, 130, 246, 0.12);
+      color: #93c5fd;
+    }
+
+    .btn-edit:hover {
+      background: rgba(59, 130, 246, 0.25);
+    }
+
+    .btn-del {
+      background: rgba(239, 68, 68, 0.1);
+      color: #fca5a5;
+    }
+
+    .btn-del:hover {
+      background: rgba(239, 68, 68, 0.22);
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface2);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .pagination-info {
+      font-size: 12px;
+      color: var(--text3);
+    }
+
+    .pagination-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .page-btn {
+      padding: 6px 13px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .page-btn:hover,
+    .page-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .page-btn:disabled {
+      opacity: .3;
+      cursor: not-allowed;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text3);
+    }
+
+    .empty-state .icon {
+      font-size: 52px;
+      margin-bottom: 14px;
+    }
+
+    .empty-state h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text2);
+      margin-bottom: 6px;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* ── HEADING BANNER ── */
+    .heading-banner {
+      background: rgba(99, 102, 241, 0.08);
+      border: 1px solid rgba(99, 102, 241, 0.22);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .heading-banner .hb-title {
+      font-size: 11px;
+      color: var(--accent2);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .heading-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .heading-chip {
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .heading-chip .hc-label {
+      font-size: 10px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .heading-chip .hc-value {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* ── STORAGE BANNER ── */
+    .storage-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .storage-banner .sb-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .storage-banner .sb-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .storage-banner .sb-text {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .storage-banner .sb-sub {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+
+    /* ── OPTIONS SECTION ── */
+    .options-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .options-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .options-label {
+      font-size: 13px;
+      color: var(--text2);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    select.styled {
+      padding: 7px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .options-hint {
+      font-size: 11px;
+      color: var(--text3);
+    }
+
+    /* ── PWD SECTION ── */
+    .pwd-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .pwd-section h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pwd-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    /* ── EMPLOYEE PANEL ── */
+    #employeePanel {
+      display: none;
+    }
+
+    #employeePanel.visible {
+      display: block;
+    }
+
+    .emp-search-box {
+      max-width: 560px;
+      margin: 0 auto 32px;
+    }
+
+    .emp-search-box h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .emp-search-box p {
+      font-size: 13px;
+      color: var(--text3);
+      margin-bottom: 20px;
+    }
+
+    .emp-search-wrap {
+      position: relative;
+    }
+
+    .emp-search-wrap input {
+      width: 100%;
+      padding: 15px 20px 15px 50px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+      transition: all .25s;
+    }
+
+    .emp-search-wrap input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+
+    .emp-search-wrap .sicon {
+      position: absolute;
+      left: 17px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 19px;
+      color: var(--text3);
+    }
+
+    .emp-search-wrap .btn-search {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 8px 20px;
+      border-radius: 9px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .emp-search-wrap .btn-search:hover {
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .emp-searching {
+      text-align: center;
+      padding: 30px;
+      color: var(--text3);
+      font-size: 13px;
+      display: none;
+    }
+
+    .emp-results {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .emp-result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 14px;
+      overflow: hidden;
+      animation: slideUp .3s ease;
+    }
+
+    .emp-result-card .card-header {
+      background: var(--surface2);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .emp-result-card .card-header .num {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .emp-result-card .card-header h4 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .emp-result-card .card-body {
+      padding: 16px 20px;
+    }
+
+    .fields-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .field-item .field-label {
+      font-size: 10px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      font-weight: 500;
+      margin-bottom: 3px;
+    }
+
+    .field-item .field-value {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 500;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.6;
+    }
+
+    .field-item.full-block {
+      grid-column: 1/-1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      width: 90%;
+      max-width: 560px;
+      max-height: 85vh;
+      overflow-y: auto;
+      animation: slideUp .3s ease;
+    }
+
+    .modal h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .modal-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .modal-field label {
+      display: block;
+      font-size: 11px;
+      color: var(--text2);
+      margin-bottom: 6px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    .modal-field input,
+    .modal-field textarea {
+      width: 100%;
+      padding: 10px 13px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      transition: all .2s;
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+
+    .modal-field textarea {
+      min-height: 80px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .modal-field input:focus,
+    .modal-field textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .modal-field.wide {
+      grid-column: 1/-1;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 22px;
+    }
+
+    /* ── CELL VIEWER ── */
+    #cellViewer {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 250;
+      backdrop-filter: blur(6px);
+    }
+
+    #cellViewer.open {
+      display: flex;
+    }
+
+    .cell-viewer-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 32px;
+      width: 92%;
+      max-width: 700px;
+      max-height: 80vh;
+      box-shadow: 0 0 60px rgba(59, 130, 246, 0.12), 0 24px 48px rgba(0, 0, 0, 0.5);
+      animation: slideUp .25s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cell-viewer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .cell-viewer-header h3 {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cell-viewer-header .cv-col {
+      font-size: 12px;
+      color: var(--accent);
+      background: rgba(59, 130, 246, 0.1);
+      padding: 4px 12px;
+      border-radius: 99px;
+      font-weight: 600;
+    }
+
+    .cell-viewer-close {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .cell-viewer-close:hover {
+      background: rgba(239, 68, 68, 0.1);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .cell-viewer-body {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    /* ── TOAST ── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      padding: 13px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideUp .3s ease;
+      min-width: 220px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+    }
+
+    .toast.success {
+      background: #064e3b;
+      color: #6ee7b7;
+      border: 1px solid #065f46;
+    }
+
+    .toast.error {
+      background: #7f1d1d;
+      color: #fca5a5;
+      border: 1px solid #991b1b;
+    }
+
+    .toast.info {
+      background: #1e3a5f;
+      color: #93c5fd;
+      border: 1px solid #1d4ed8;
+    }
+
+    .toast.warning {
+      background: #451a03;
+      color: #fbbf24;
+      border: 1px solid #92400e;
+    }
+
+    /* ── DUPLICATE MODAL ── */
+    #dupModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 300;
+      backdrop-filter: blur(6px);
+    }
+
+    #dupModal.open {
+      display: flex;
+    }
+
+    .dup-card {
+      background: var(--surface);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 22px;
+      padding: 36px;
+      width: 92%;
+      max-width: 640px;
+      box-shadow: 0 0 60px rgba(245, 158, 11, 0.12), 0 24px 48px rgba(0, 0, 0, 0.5);
+      animation: slideUp .35s ease;
+    }
+
+    .dup-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .dup-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      flex-shrink: 0;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+    }
+
+    .dup-header h3 {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .dup-header p {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: 3px;
+    }
+
+    .dup-stats {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .dup-stat {
+      flex: 1;
+      padding: 14px;
+      border-radius: 12px;
+      text-align: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+
+    .dup-stat .ds-val {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .dup-stat .ds-lbl {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      margin-top: 3px;
+    }
+
+    .dup-preview-label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .dup-preview {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      max-height: 180px;
+      overflow-y: auto;
+      margin-bottom: 22px;
+    }
+
+    .dup-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .dup-preview thead th {
+      padding: 9px 12px;
+      background: var(--surface3);
+      color: var(--text2);
+      text-align: left;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      white-space: nowrap;
+    }
+
+    .dup-preview tbody td {
+      padding: 8px 12px;
+      border-top: 1px solid var(--border);
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dup-preview tbody tr:hover {
+      background: rgba(59, 130, 246, .04);
+    }
+
+    .dup-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    /* ── COLUMN CLEANUP BANNER ── */
+    .cleanup-info {
+      background: rgba(245, 158, 11, 0.07);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--yellow);
+      display: none;
+    }
+
+    @media(max-width:600px) {
+      .login-card {
+        padding: 32px 22px;
+        width: 95%;
+      }
+
+      .stats-row,
+      .pwd-grid {
+        flex-direction: column;
+      }
+
+      .controls {
+        flex-direction: column;
+      }
+
+      .modal-fields {
+        grid-template-columns: 1fr;
+      }
+
+      .dup-stats {
+        flex-direction: column;
+      }
+    }
+    
+    .settings-tabs {
+      display: flex; gap: 8px; margin-bottom: 16px;
+    }
+    .s-tab {
+      flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--text2); cursor: pointer;
+      font-weight: 600; transition: all .2s; font-size: 13px;
+    }
+    .s-tab.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+
+    /* ── LIGHT MODE ── */
+    .light-mode {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface2: #f1f5f9;
+      --surface3: #e2e8f0;
+      --border: rgba(0, 0, 0, 0.1);
+      --accent: #2563eb;
+      --accent2: #4f46e5;
+      --accent-glow: rgba(37, 99, 235, 0.2);
+      --green: #059669;
+      --red: #dc2626;
+      --yellow: #d97706;
+      --text: #0f172a;
+      --text2: #334155;
+      --text3: #64748b;
+      --logo-fill: #374151;
+      --logo-shadow: #9ca3af;
+    }
+    :root {
+      --logo-fill: #f1f5f9;
+      --logo-shadow: #3b82f6;
+    }
+    .light-mode body::before {
+      background: radial-gradient(ellipse 80% 60% at 20% 10%, rgba(59, 130, 246, 0.05) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(99, 102, 241, 0.04) 0%, transparent 60%);
+    }
+
+    /* ── ANIMATIONS ── */
+    .fade-out {
+      animation: fadeOut 0.5s forwards ease;
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; transform: scale(1); }
+      to { opacity: 0; transform: scale(0.98); }
+    }
+    .fade-in {
+      animation: fadeIn 0.6s forwards cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: fixed;
+      top: 0; right: -360px;
+      width: 340px; height: 100vh;
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-left: 1px solid var(--border);
+      z-index: 1000;
+      transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex; flex-direction: column;
+      box-shadow: -10px 0 40px rgba(0,0,0,0.2);
+    }
+    .light-mode .sidebar {
+      background: rgba(255, 255, 255, 0.85);
+    }
+    .sidebar.open {
+      right: 0;
+    }
+    .sidebar-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .sidebar-header h3 { font-size: 18px; font-weight: 600; }
+    .sidebar-body { padding: 24px; flex: 1; overflow-y: auto; }
+    .setting-item { margin-bottom: 24px; }
+    .setting-item label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sidebar-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.4s;
+    }
+    .sidebar-overlay.open {
+      opacity: 1; pointer-events: auto;
+    }
+    .styled-input {
+      width: 100%; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--text); font-size: 14px; outline: none; transition: all .2s;
+    }
+    .styled-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+    
+    .btn-settings {
+      padding: 8px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); cursor: pointer; transition: all .2s;
+    }
+    .btn-settings:hover { background: var(--surface3); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 10px; width: 100%; cursor: pointer; transition: all .2s; font-weight: 600; }
+    .btn-outline:hover { background: var(--surface2); }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── LOADING ── -->
+  <div id="loadingOverlay" class="hidden">
+    <div class="loading-spinner"></div>
+    <div class="loading-title" id="loadingTitle">Loading…</div>
+    <div class="loading-sub" id="loadingSub">Please wait</div>
+    <div class="loading-bar-wrap">
+      <div class="loading-bar" id="loadingBar"></div>
+    </div>
+  </div>
+
+  <!-- ── LOGIN ── -->
+  <div id="loginPage">
+    <div class="login-card">
+      <div class="login-logo" style="flex-direction: column; align-items: center; text-align: center; margin-bottom: 32px;">
+        <svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <g transform="translate(10, 10)">
+            <rect x="25" y="5" width="22" height="60" fill="var(--logo-shadow)" />
+            <path d="M 52 40 A 25 25 0 0 1 77 65 L 52 65 Z" fill="var(--logo-shadow)" />
+            <rect x="20" y="0" width="22" height="60" fill="var(--logo-fill)" />
+            <path d="M 47 35 A 25 25 0 0 1 72 60 L 47 60 Z" fill="var(--logo-fill)" />
+            <text x="48" y="90" font-family="'IBM Plex Sans', sans-serif" font-weight="800" font-size="16" fill="var(--logo-fill)" text-anchor="middle" letter-spacing="4">LEADSBPO</text>
+          </g>
+        </svg>
+        <p style="margin-top: 4px;">Secure Data Access System</p>
+      </div>
+      <div class="role-tabs">
+        <button class="role-tab active" onclick="selectRole('boss')" id="tabBoss">👑 Boss</button>
+        <button class="role-tab" onclick="selectRole('employee')" id="tabEmployee">👤 Employee</button>
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="loginUser" placeholder="Enter username" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="loginPass" placeholder="Enter password"
+          onkeypress="if(event.key==='Enter')doLogin()" />
+      </div>
+      <button class="btn-login" onclick="doLogin()">Sign In →</button>
+      <div class="login-error" id="loginError"></div>
+      <div class="default-creds">
+        🔐 <strong>Default Credentials</strong><br />
+        Boss: <strong>admin</strong> / <strong>4444</strong><br />
+        Employee: <strong>employee</strong> / <strong>4444</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── APP ── -->
+  <div id="app">
+    <div class="topbar">
+      <div class="topbar-left" style="gap: 8px;">
+        <svg width="34" height="34" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <g transform="translate(10, 10)">
+            <rect x="25" y="5" width="22" height="60" fill="var(--logo-shadow)" />
+            <path d="M 52 40 A 25 25 0 0 1 77 65 L 52 65 Z" fill="var(--logo-shadow)" />
+            <rect x="20" y="0" width="22" height="60" fill="var(--logo-fill)" />
+            <path d="M 47 35 A 25 25 0 0 1 72 60 L 47 60 Z" fill="var(--logo-fill)" />
+          </g>
+        </svg>
+        <h2 style="letter-spacing: 2px;">LEADSBPO</h2>
+      </div>
+      <div class="topbar-right">
+        <span class="badge" id="roleBadge"></span>
+        <span style="font-size:12px;color:var(--text3)" id="userLabel"></span>
+        <button class="btn-settings" onclick="toggleSettings()">⚙️</button>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ── BOSS PANEL ── -->
+      <div id="bossPanel">
+
+        <div class="storage-banner" id="storageBanner" style="display:none;">
+          <div class="sb-left">
+            <div class="sb-dot"></div>
+            <div>
+              <div class="sb-text" id="sbText">Data loaded from cloud</div>
+              <div class="sb-sub" id="sbSub">Persistent — no need to re-upload each login</div>
+            </div>
+          </div>
+          <button class="btn btn-danger" onclick="clearAllData()">🗑️ Clear &amp; Re-upload</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="label">Total Records</div>
+            <div class="value" id="statTotal" style="color:var(--accent)">0</div>
+            <div class="sub">All rows in cloud</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Columns</div>
+            <div class="value" id="statCols" style="color:var(--accent2)">0</div>
+            <div class="sub">Fields detected</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Showing</div>
+            <div class="value" id="statFiltered" style="color:var(--green)">0</div>
+            <div class="sub" id="statFilteredLabel">All records</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Data Status</div>
+            <div class="value" id="statStatus" style="font-size:16px;padding-top:6px;">No Data</div>
+            <div class="sub" id="statFile">Upload Excel to begin</div>
+          </div>
+        </div>
+
+        <!-- Upload Zone -->
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+          ondragover="handleDrag(event)" ondrop="handleDrop(event)" ondragleave="removeDrag()">
+          <div class="upload-icon">📊</div>
+          <h3 id="uploadTitle">Upload Excel File</h3>
+          <p id="uploadDesc">Click to browse or drag &amp; drop your .xlsx / .xls / .csv file here</p>
+          <div class="upload-progress" id="uploadProgress">
+            <div class="upload-progress-bar" id="uploadBar"></div>
+          </div>
+          <div class="upload-status" id="uploadStatus"></div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="loadFile(this)" />
+        </div>
+
+        <!-- Upload Options -->
+        <div class="options-section">
+          <div class="options-row">
+            <span class="options-label">📋 Header row:</span>
+            <select id="headerRowSelect" class="styled">
+              <option value="auto">🔍 Auto-detect (recommended)</option>
+              <option value="1">Row 1</option>
+              <option value="2">Row 2</option>
+              <option value="3">Row 3</option>
+              <option value="4">Row 4</option>
+              <option value="5">Row 5</option>
+              <option value="0">❌ No header row (I'll name columns)</option>
+            </select>
+            <span class="options-hint">Set BEFORE uploading</span>
+          </div>
+          <div id="customColsWrap" style="display:none;">
+            <label
+              style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;font-weight:500;display:block;margin-bottom:6px;">Column
+              names (comma-separated):</label>
+            <input type="text" id="customColNames" placeholder="e.g. ID, Name, Phone, Address, City, State"
+              style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;outline:none;" />
+            <span style="font-size:11px;color:var(--yellow);margin-top:4px;display:block;">⚠️ Number of names must match
+              number of columns in your file</span>
+          </div>
+          <div class="cleanup-info" id="cleanupInfo"></div>
+        </div>
+
+        <!-- Heading Banner -->
+        <div class="heading-banner" id="headingBanner">
+          <div class="hb-title">📄 File Headings Detected</div>
+          <div id="headingContent"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="bossSearch" placeholder="Search across all columns…" oninput="debouncedFilter()" />
+          </div>
+          <button class="btn btn-primary" onclick="openAddModal()">➕ Add Record</button>
+          <button class="btn btn-success" onclick="exportData()">📥 Export Excel</button>
+          <select id="pageSizeSelect" class="styled" onchange="changePageSize()">
+            <option value="50">50 / page</option>
+            <option value="100">100 / page</option>
+            <option value="250">250 / page</option>
+            <option value="500">500 / page</option>
+          </select>
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrap">
+          <div class="table-scroll" id="tableScroll">
+            <div class="empty-state" id="emptyState">
+              <div class="icon">📂</div>
+              <h3>No Data Loaded</h3>
+              <p>Upload an Excel or CSV file above to view and manage your data.</p>
+            </div>
+            <table id="dataTable" style="display:none;">
+              <thead id="tableHead"></thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="pagination" style="display:none;">
+            <div class="pagination-info" id="paginationInfo"></div>
+            <div class="pagination-btns" id="paginationBtns"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── EMPLOYEE PANEL ── -->
+      <div id="employeePanel">
+        <div class="heading-banner" id="empHeadingBanner" style="max-width:900px;margin:0 auto 20px;">
+          <div class="hb-title">📄 Dataset Info</div>
+          <div id="empHeadingContent"></div>
+        </div>
+        <div class="emp-search-box">
+          <h2>🔍 Search Records</h2>
+          <p>Enter a name or keyword to look up records. Results are read-only.</p>
+          <div class="emp-search-wrap">
+            <span class="sicon">🔍</span>
+            <input type="text" id="empSearchInput" placeholder="Type name or number…"
+              onkeypress="if(event.key==='Enter')empSearch()" />
+            <button class="btn-search" onclick="empSearch()">Search</button>
+          </div>
+        </div>
+        <div class="emp-searching" id="empSearching">
+          <div
+            style="display:inline-block;width:20px;height:20px;border:2px solid rgba(59,130,246,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:8px;">
+          </div>
+          <div>Searching through records…</div>
+        </div>
+        <div class="emp-results" id="empResults">
+          <div class="empty-state">
+            <div class="icon">🔍</div>
+            <h3>Search to Find Records</h3>
+            <p>Type a name or number above and press Search.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── MODAL ── -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <h3 id="modalTitle">➕ Add New Record</h3>
+      <div class="modal-fields" id="modalFields"></div>
+      <div class="modal-actions">
+        <button class="btn btn-danger" onclick="closeModal()">✖ Cancel</button>
+        <button class="btn btn-primary" onclick="saveRecord()">💾 Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CELL VIEWER ── -->
+  <div id="cellViewer" onclick="if(event.target===this)closeCellViewer()">
+    <div class="cell-viewer-card">
+      <div class="cell-viewer-header">
+        <h3>📋 <span class="cv-col" id="cvColName"></span></h3>
+        <button class="cell-viewer-close" onclick="closeCellViewer()">✕ Close</button>
+      </div>
+      <div class="cell-viewer-body" id="cvBody"></div>
+    </div>
+  </div>
+
+  <!-- ── DUPLICATE MODAL ── -->
+  <div id="dupModal">
+    <div class="dup-card">
+      <div class="dup-header">
+        <div class="dup-icon">⚠️</div>
+        <div>
+          <h3>Duplicate Rows Detected</h3>
+          <p id="dupSubtitle">Some rows appear more than once in your file.</p>
+        </div>
+      </div>
+      <div class="dup-stats">
+        <div class="dup-stat">
+          <div class="ds-val" id="dupTotalVal" style="color:var(--accent)">0</div>
+          <div class="ds-lbl">Total Rows</div>
+        </div>
+        <div class="dup-stat">
+          <div class="ds-val" id="dupDupeVal" style="color:var(--yellow)">0</div>
+          <div class="ds-lbl">Duplicates Found</div>
+        </div>
+        <div class="dup-stat">
+          <div class="ds-val" id="dupUniqueVal" style="color:var(--green)">0</div>
+          <div class="ds-lbl">Unique Rows</div>
+        </div>
+      </div>
+      <div class="dup-preview-label">Preview of duplicate rows (first 5 shown)</div>
+      <div class="dup-preview">
+        <table>
+          <thead id="dupPreviewHead"></thead>
+          <tbody id="dupPreviewBody"></tbody>
+        </table>
+      </div>
+      <div class="dup-actions">
+        <button class="btn btn-success" onclick="dupDecide(false)">⏭️ Keep All Rows</button>
+        <button class="btn btn-warning" onclick="dupDecide(true)">🧹 Remove Duplicates &amp; Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // ══════════════════════════════════════════════════
+    //  SECURE BACKEND API WRAPPER
+    // ══════════════════════════════════════════════════
+    async function apiCall(endpoint, method = 'GET', body = null) {
+      const opts = { method, headers: {} };
+      if (body) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(body);
+      }
+      const res = await fetch(endpoint, opts);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'API Error');
+      return data;
+    }
+
+    // ══════════════════════════════════════════════════
+    //  DATABASE HELPERS
+    // ══════════════════════════════════════════════════
+
+    async function sbGetColumns() {
+      try {
+        const data = await apiCall('/api/records?action=columns');
+        return { cols: data.cols || [], headings: data.headings || [] };
+      } catch (e) {
+        return { cols: [], headings: [] };
+      }
+    }
+
+    async function sbSetColumns(colsObj) {
+      await apiCall('/api/records?action=columns', 'POST', colsObj);
+    }
+
+    async function sbCountAll(q = '') {
+      const data = await apiCall('/api/records?action=count&q=' + encodeURIComponent(q));
+      return data.count || 0;
+    }
+
+    async function sbLoadPage(page, size, q = '') {
+      return await apiCall('/api/records?action=page&page=' + page + '&size=' + size + '&q=' + encodeURIComponent(q));
+    }
+
+    async function sbInsertBatch(rows, onProg) {
+      const CHUNK_SIZE = 500;
+      let inserted = 0;
+      for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+        const chunk = rows.slice(i, i + CHUNK_SIZE);
+        await apiCall('/api/records?action=insert', 'POST', { rows: chunk });
+        inserted += chunk.length;
+        if (onProg) onProg(inserted, rows.length);
+      }
+    }
+
+    async function sbAddOne(row) {
+      const data = await apiCall('/api/records?action=addOne', 'POST', row);
+      return data.id;
+    }
+
+    async function sbUpdateOne(id, row) {
+      await apiCall('/api/records?action=updateOne', 'PUT', { id, row });
+    }
+
+    async function sbDeleteOne(id) {
+      await apiCall('/api/records?action=deleteOne', 'DELETE', { id });
+    }
+
+    async function sbDeleteAll() {
+      await apiCall('/api/records?action=deleteAll', 'DELETE');
+    }
+
+    // Search via RPC — extractRowData normalizes result format
+    async function sbSearch(q, limit = 50) {
+      const data = await apiCall('/api/records?action=search&limit=' + limit + '&q=' + encodeURIComponent(q));
+      return (data || []).map(extractRowData);
+    }
+
+    // FIX: Unified, robust row data extractor
+    function extractRowData(row) {
+      if (!row) return {};
+      // Row may be: { id, data: {...} } or just {...} (from RPC)
+      let d = (row.data !== undefined && row.data !== null) ? row.data : row;
+      if (typeof d === 'string') {
+        try { d = JSON.parse(d); } catch (e) { return {}; }
+      }
+      if (d && typeof d === 'object' && !Array.isArray(d)) {
+        // Remove internal DB keys from display
+        const clean = Object.assign({}, d);
+        delete clean.id;
+        delete clean.created_at;
+        return clean;
+      }
+      return {};
+    }
+
+    // ══════════════════════════════════════════════════
+    //  GLOBAL STATE
+    // ══════════════════════════════════════════════════
+    let columns = [];          // Array of column name strings
+    let currentPage = 1;
+    let pageSize = 50;
+    let searchQuery = '';
+    let totalCount = 0;
+    let filteredCount = 0;
+    let currentPageData = [];  // [{id, data:{...}}, ...]
+    let currentRole = '';
+    let selectedRole = 'boss';
+    let editingId = null;
+    let fileHeadings = [];
+    let _filterTimer = null;
+
+    // FIX: Store per-column index for cell viewer (avoid escaping issues in onclick attrs)
+    let _cellViewerData = [];  // current page flat data rows
+
+    // FIX: For dupModal — store pending data before committing
+    let _pendingUploadData = null;
+
+    // ══════════════════════════════════════════════════
+    //  LOADING
+    // ══════════════════════════════════════════════════
+    function showLoading(t, s, p) {
+      document.getElementById('loadingOverlay').classList.remove('hidden');
+      document.getElementById('loadingTitle').textContent = t || 'Loading…';
+      document.getElementById('loadingSub').textContent = s || '';
+      document.getElementById('loadingBar').style.width = (p || 0) + '%';
+    }
+    function setLoadingProgress(p, s) {
+      document.getElementById('loadingBar').style.width = p + '%';
+      if (s) document.getElementById('loadingSub').textContent = s;
+    }
+    function hideLoading() {
+      document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+
+    // ══════════════════════════════════════════════════
+    //  LOGIN
+    // ══════════════════════════════════════════════════
+    function selectRole(r) {
+      selectedRole = r;
+      document.getElementById('tabBoss').classList.toggle('active', r === 'boss');
+      document.getElementById('tabEmployee').classList.toggle('active', r === 'employee');
+    }
+
+    async function doLogin() {
+      const user = document.getElementById('loginUser').value.trim();
+      const pass = document.getElementById('loginPass').value;
+      const errEl = document.getElementById('loginError');
+      errEl.style.display = 'none';
+
+      if (!user || !pass) {
+        errEl.textContent = '❌ Please enter both username and password.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      try {
+        showLoading('Connecting…', 'Verifying credentials', 30);
+        const data = await apiCall('/api/auth', 'POST', { username: user, password: pass, selectedRole });
+        hideLoading();
+        
+        let ok = data.success;
+        
+        if (!ok) {
+          errEl.textContent = '❌ Invalid credentials. Please try again.';
+          errEl.style.display = 'block';
+          return;
+        }
+        currentRole = selectedRole;
+        document.getElementById('loginPage').classList.add('fade-out');
+        setTimeout(() => { document.getElementById('loginPage').style.display = 'none'; }, 500);
+        const badge = document.getElementById('roleBadge');
+        badge.textContent = currentRole === 'boss' ? '👑 Boss' : '👤 Employee';
+        badge.className = 'badge ' + (currentRole === 'boss' ? 'boss' : 'employee');
+        document.getElementById('userLabel').textContent = user;
+        if (currentRole === 'boss') await bossBoot();
+        else await employeeBoot();
+      } catch (ex) {
+        hideLoading();
+        errEl.textContent = '❌ Connection error: ' + ex.message;
+        errEl.style.display = 'block';
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    //  BOSS BOOT
+    // ══════════════════════════════════════════════════
+    async function bossBoot() {
+      showLoading('Connecting to Cloud…', 'Fetching data info', 10);
+      try {
+        const colsMeta = await sbGetColumns();
+        columns = colsMeta.cols || [];
+        fileHeadings = colsMeta.headings || [];
+        totalCount = await sbCountAll();
+        filteredCount = totalCount;
+        setLoadingProgress(80, 'Ready!');
+        await new Promise(r => setTimeout(r, 300));
+        hideLoading();
+        launchApp();
+
+        if (totalCount > 0) {
+          await renderTable();
+          updateStats();
+          showHeadingBanner('boss');
+          document.getElementById('storageBanner').style.display = 'flex';
+          document.getElementById('sbText').textContent = '☁️ ' + totalCount.toLocaleString() + ' records in Supabase cloud';
+          document.getElementById('sbSub').textContent = 'Persistent across all devices — no re-upload needed';
+          document.getElementById('uploadTitle').textContent = '🔄 Upload More / Replace Data';
+          document.getElementById('uploadDesc').textContent = 'Upload Excel/CSV to add more records. Duplicates within the file are auto-skipped.';
+          document.getElementById('statStatus').textContent = '✅ Cloud';
+          document.getElementById('statStatus').style.color = 'var(--green)';
+          document.getElementById('statFile').textContent = 'Supabase';
+        }
+      } catch (ex) {
+        hideLoading();
+        showToast('❌ Supabase error: ' + ex.message, 'error');
+        launchApp();
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    //  EMPLOYEE BOOT
+    // ══════════════════════════════════════════════════
+    async function employeeBoot() {
+      showLoading('Connecting…', 'Loading data info', 50);
+      try {
+        const [colsMeta, count] = await Promise.all([sbGetColumns(), sbCountAll()]);
+        hideLoading();
+        columns = colsMeta.cols || [];
+        fileHeadings = colsMeta.headings || [];
+        const app = document.getElementById('app');
+        app.classList.add('visible', 'fade-in');
+        document.getElementById('employeePanel').classList.add('visible');
+        showHeadingBanner('employee');
+        if (count === 0) {
+          document.getElementById('empResults').innerHTML =
+            '<div class="empty-state"><div class="icon">⚠️</div><h3>No Data Available</h3><p>The administrator has not uploaded any data yet.</p></div>';
+        }
+      } catch (ex) {
+        hideLoading();
+        showToast('❌ Connection error: ' + ex.message, 'error');
+      }
+    }
+
+    function launchApp() {
+      const app = document.getElementById('app');
+      app.classList.add('visible', 'fade-in');
+      document.getElementById('bossPanel').classList.add('visible');
+    }
+
+    // FIX: Clear debounce timer on logout to prevent memory leak
+    async function logout() {
+      clearTimeout(_filterTimer);
+      try { await apiCall('/api/auth', 'DELETE'); } catch(e) {}
+      const app = document.getElementById('app');
+      app.classList.remove('fade-in');
+      app.classList.add('fade-out');
+      setTimeout(() => location.reload(), 500);
+    }
+
+    // ══════════════════════════════════════════════════
+    //  SETTINGS SIDEBAR
+    // ══════════════════════════════════════════════════
+    function toggleSettings() {
+      const credSection = document.getElementById('credentialsSection');
+      if (credSection) {
+        credSection.style.display = currentRole === 'boss' ? 'block' : 'none';
+      }
+      document.getElementById('settingsSidebar').classList.toggle('open');
+      document.getElementById('sidebarOverlay').classList.toggle('open');
+    }
+    
+    function toggleTheme() {
+      const isLight = document.documentElement.classList.toggle('light-mode');
+      localStorage.setItem('leadsbpo-theme', isLight ? 'light' : 'dark');
+      document.getElementById('themeBtn').textContent = isLight ? '🌙 Switch to Dark Mode' : '☀️ Switch to Light Mode';
+    }
+    
+    let allEmployees = [];
+
+    async function loadEmployeeSettings() {
+      const empContainer = document.getElementById('employeeList');
+      empContainer.innerHTML = '<div style="color:var(--text3); font-size:12px;">Loading employees...</div>';
+      try {
+        const data = await apiCall('/api/credentials');
+        allEmployees = data.map(u => ({ role: u.role, user: u.username, pass: '' }));
+        renderEmployeeList();
+      } catch(e) {
+        empContainer.innerHTML = '<div style="color:var(--red); font-size:12px;">Failed to load employees</div>';
+      }
+    }
+
+    function renderEmployeeList() {
+      const empContainer = document.getElementById('employeeList');
+      empContainer.innerHTML = '';
+      allEmployees.forEach((emp, i) => {
+        const el = document.createElement('div');
+        el.style.cssText = 'background:var(--surface2); padding:12px; border-radius:8px; border:1px solid var(--border);';
+        el.innerHTML = `
+          <div style="font-weight:600; font-size:13px; margin-bottom:8px; display:flex; justify-content:space-between;">
+            <span>Employee ${i+1}</span>
+            <button class="btn-icon" style="color:var(--red);" onclick="deleteEmployee('${emp.role}')">🗑️</button>
+          </div>
+          <input type="text" id="empUser_${emp.role}" value="${emp.user}" placeholder="Username" class="styled-input" style="margin-bottom:8px;" />
+          <input type="password" id="empPass_${emp.role}" placeholder="New Password (leave blank to keep)" class="styled-input" style="margin-bottom:8px;" />
+          <input type="password" id="empConfirm_${emp.role}" placeholder="Confirm New Password" class="styled-input" style="margin-bottom:8px;" />
+          <button class="btn btn-success" style="width:100%; font-size:12px; padding:8px;" onclick="saveEmployee('${emp.role}')">Save Employee ${i+1}</button>
+        `;
+        empContainer.appendChild(el);
+      });
+    }
+
+    function switchSettingsTab(tab) {
+      document.querySelectorAll('.s-tab').forEach(b => b.classList.remove('active'));
+      document.getElementById('adminSettingsView').style.display = tab === 'admin' ? 'block' : 'none';
+      document.getElementById('empSettingsView').style.display = tab === 'employees' ? 'block' : 'none';
+      if(tab === 'admin') {
+        document.querySelector('.settings-tabs .s-tab:nth-child(1)').classList.add('active');
+      } else {
+        document.querySelector('.settings-tabs .s-tab:nth-child(2)').classList.add('active');
+        loadEmployeeSettings();
+      }
+    }
+
+    async function updateAdminCreds() {
+      const u = document.getElementById('newAdminUser').value.trim();
+      const p = document.getElementById('newAdminPass').value;
+      const cp = document.getElementById('confirmAdminPass').value;
+      
+      if (!u && !p) { showToast('No changes provided', 'warning'); return; }
+      if (p && p.length > 0 && p.length < 6) { showToast('Password must be at least 6 characters', 'error'); return; }
+      if (p && p !== cp) { showToast('Passwords do not match', 'error'); return; }
+      
+      showLoading('Updating...', 'Saving admin credentials', 50);
+      try {
+        const updates = { targetRole: 'boss' };
+        if (u) updates.username = u;
+        if (p) updates.password = p; 
+        
+        await apiCall('/api/credentials', 'PUT', updates);
+        
+        hideLoading();
+        showToast('✅ Admin credentials updated', 'success');
+        document.getElementById('newAdminUser').value = '';
+        document.getElementById('newAdminPass').value = '';
+        document.getElementById('confirmAdminPass').value = '';
+        
+        if (u) document.getElementById('userLabel').textContent = u;
+      } catch (ex) {
+        hideLoading();
+        showToast('❌ Failed to update: ' + ex.message, 'error');
+      }
+    }
+
+    async function saveEmployee(role) {
+      const u = document.getElementById('empUser_' + role).value.trim();
+      const p = document.getElementById('empPass_' + role).value;
+      const cp = document.getElementById('empConfirm_' + role).value;
+      
+      if (!u) { showToast('Username cannot be empty', 'error'); return; }
+      if (p && p.length > 0 && p.length < 4) { showToast('Password must be at least 4 characters', 'error'); return; }
+      if (p && p !== cp) { showToast('Passwords do not match', 'error'); return; }
+      
+      showLoading('Updating...', 'Saving employee credentials', 50);
+      try {
+        const updates = { targetRole: role, username: u };
+        if (p) updates.password = p;
+        await apiCall('/api/credentials', 'PUT', updates);
+        hideLoading();
+        showToast('✅ Employee updated', 'success');
+        document.getElementById('empPass_' + role).value = '';
+        document.getElementById('empConfirm_' + role).value = '';
+      } catch(ex) {
+        hideLoading();
+        showToast('❌ ' + ex.message, 'error');
+      }
+    }
+
+    async function addNewEmployeeRow() {
+      const newRole = 'employee_' + Date.now();
+      showLoading('Adding...', 'Creating new employee slot', 50);
+      try {
+        await apiCall('/api/credentials', 'POST', { username: 'NewEmployee' + Math.floor(Math.random()*1000), password: '1234' });
+        hideLoading();
+        showToast('✅ New employee added', 'success');
+        loadEmployeeSettings();
+      } catch(ex) {
+        hideLoading();
+        showToast('❌ ' + ex.message, 'error');
+      }
+    }
+
+    async function deleteEmployee(role) {
+      if(!confirm('Are you sure you want to delete this employee account?')) return;
+      showLoading('Deleting...', '', 50);
+      try {
+        await apiCall('/api/credentials', 'DELETE', { targetRole: role });
+        hideLoading();
+        showToast('🗑️ Employee deleted', 'info');
+        loadEmployeeSettings();
+      } catch(ex) {
+        hideLoading();
+        showToast('❌ ' + ex.message, 'error');
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    //  EXCEL DATE DETECTION & CONVERSION
+    // ══════════════════════════════════════════════════
+    // FIX: Convert Excel serial date numbers to human-readable dates
+    function isExcelDateSerial(val, colName) {
+      if (typeof val !== 'number') return false;
+      if (val < 1 || val > 2958465) return false; // outside 1900–9999 range
+      // Heuristic: if column name contains date-like words, treat as date
+      const dateHints = /date|dob|birth|joined|created|expir|issued|since|from|to\b|start|end|год|تاريخ/i;
+      return dateHints.test(String(colName));
+    }
+
+    function excelSerialToDate(serial) {
+      // Excel's epoch is 1 Jan 1900 (with the famous leap year bug)
+      const msPerDay = 86400000;
+      const excelEpoch = new Date(1899, 11, 30).getTime();
+      const date = new Date(excelEpoch + serial * msPerDay);
+      if (isNaN(date.getTime())) return String(serial);
+      return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    // FIX: Normalize a cell value — convert serial dates, trim strings, handle undefined
+    function normalizeCell(val, colName) {
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'number') {
+        if (isExcelDateSerial(val, colName)) return excelSerialToDate(val);
+        // Round floating point display issues (e.g. 1234.000000001)
+        if (Math.abs(val - Math.round(val)) < 1e-9) return String(Math.round(val));
+        return String(parseFloat(val.toFixed(10)));
+      }
+      return String(val).trim();
+    }
+
+    // ══════════════════════════════════════════════════
+    //  FILE UPLOAD
+    // ══════════════════════════════════════════════════
+    function handleDrag(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag'); }
+    function removeDrag() { document.getElementById('uploadZone').classList.remove('drag'); }
+    function handleDrop(e) { e.preventDefault(); removeDrag(); const f = e.dataTransfer.files[0]; if (f) processFile(f); }
+    function loadFile(input) { if (input.files[0]) processFile(input.files[0]); }
+
+    async function processFile(file) {
+      const prog = document.getElementById('uploadProgress');
+      const bar = document.getElementById('uploadBar');
+      const status = document.getElementById('uploadStatus');
+      const cleanupInfo = document.getElementById('cleanupInfo');
+      prog.style.display = 'block'; status.style.display = 'block';
+      bar.style.width = '0%'; status.textContent = 'Reading file…';
+      cleanupInfo.style.display = 'none';
+
+      const reader = new FileReader();
+      reader.onerror = () => { showToast('❌ Could not read file', 'error'); prog.style.display = 'none'; status.style.display = 'none'; };
+      reader.onload = async function (e) {
+        try {
+          bar.style.width = '15%'; status.textContent = 'Parsing Excel…';
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, { type: 'array', cellDates: false });
+
+          if (!wb.SheetNames.length) { showToast('No sheets found in file', 'error'); prog.style.display = 'none'; status.style.display = 'none'; return; }
+
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const headerRowSetting = document.getElementById('headerRowSelect').value;
+          const allRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
+
+          if (!allRows.length) { showToast('File appears empty', 'error'); prog.style.display = 'none'; status.style.display = 'none'; return; }
+
+          let colMap = [], dataRows;
+          fileHeadings = [];
+          let cleanupMessages = [];
+
+          if (headerRowSetting === '0') {
+            // ── No header: use custom column names
+            const customInput = document.getElementById('customColNames').value.trim();
+            if (!customInput) { showToast('Please enter column names first', 'error'); prog.style.display = 'none'; status.style.display = 'none'; return; }
+            const customNames = customInput.split(',').map(s => s.trim()).filter(s => s);
+            const maxCols = Math.max(...allRows.map(r => r.length));
+            for (let i = 0; i < maxCols; i++) colMap.push({ idx: i, name: customNames[i] || ('Column_' + (i + 1)) });
+            dataRows = allRows;
+          } else {
+            let headerRow;
+            if (headerRowSetting === 'auto') {
+              headerRow = autoDetectHeaderRow(allRows);
+              showToast('🔍 Auto-detected header at Row ' + headerRow, 'info');
+            } else {
+              headerRow = parseInt(headerRowSetting);
+            }
+            if (allRows.length < headerRow) { showToast('File has fewer rows than selected header row', 'error'); prog.style.display = 'none'; status.style.display = 'none'; return; }
+
+            // Capture heading rows above header
+            for (let h = 0; h < headerRow - 1; h++) {
+              const vals = (allRows[h] || []).map(v => String(v).trim()).filter(v => v);
+              if (vals.length > 0) fileHeadings.push(vals);
+            }
+
+            // FIX: Clean and deduplicate column headers
+            const rawHeaders = allRows[headerRow - 1] || [];
+            const seenNames = new Map();
+            rawHeaders.forEach((h, i) => {
+              let name = String(h).trim()
+                .replace(/\n/g, ' ')      // remove newlines in header
+                .replace(/\s+/g, ' ');    // collapse multiple spaces
+              if (!name || name === '' || name === 'undefined' || name === 'null') return; // skip empty columns
+
+              // FIX: Deduplicate column names (Col, Col → Col, Col_2)
+              if (seenNames.has(name)) {
+                seenNames.set(name, seenNames.get(name) + 1);
+                const newName = name + '_' + seenNames.get(name);
+                cleanupMessages.push('Duplicate column "' + name + '" renamed to "' + newName + '"');
+                name = newName;
+              } else {
+                seenNames.set(name, 1);
+              }
+              colMap.push({ idx: i, name });
+            });
+
+            if (!colMap.length) { showToast('No valid column headers found on row ' + headerRow, 'error'); prog.style.display = 'none'; status.style.display = 'none'; return; }
+            dataRows = allRows.slice(headerRow);
+          }
+
+          // FIX: Build column list (enforce all unique)
+          columns = colMap.map(c => c.name);
+
+          // FIX: Parse rows — skip fully empty rows, normalize values, handle sparse rows
+          const json = [];
+          let skippedEmpty = 0;
+          for (const r of dataRows) {
+            // Check if row has at least 1 non-empty cell
+            let filledCount = 0;
+            for (const c of colMap) {
+              const v = r[c.idx];
+              if (v !== undefined && v !== null && String(v).trim() !== '') filledCount++;
+            }
+            if (filledCount === 0) { skippedEmpty++; continue; }
+
+            const obj = {};
+            for (const c of colMap) {
+              obj[c.name] = normalizeCell(r[c.idx], c.name);
+            }
+            json.push(obj);
+          }
+
+          if (skippedEmpty > 0) cleanupMessages.push(skippedEmpty + ' empty row(s) skipped');
+
+          if (!json.length) { showToast('No data rows found after cleaning', 'error'); prog.style.display = 'none'; status.style.display = 'none'; return; }
+
+          bar.style.width = '20%'; status.textContent = 'Checking for duplicates…';
+
+          // FIX: Show cleanup info banner
+          if (cleanupMessages.length > 0) {
+            cleanupInfo.innerHTML = '⚙️ Auto-cleanup: ' + cleanupMessages.map(m => '<strong>' + escH(m) + '</strong>').join(' &nbsp;|&nbsp; ');
+            cleanupInfo.style.display = 'block';
+          }
+
+          // FIX: Show duplicate modal properly — store data and wait for user decision
+          const { unique, dupes } = findWithinFileDupes(json);
+
+          if (dupes.length > 0) {
+            showDupModal(json.length, dupes, unique, colMap, file.name);
+          } else {
+            await commitUpload(unique, colMap, file.name, bar, status, prog);
+          }
+
+        } catch (ex) {
+          showToast('❌ ' + ex.message, 'error');
+          prog.style.display = 'none'; status.style.display = 'none';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // ══════════════════════════════════════════════════
+    //  DUPLICATE MODAL — FIX: dupDecide was missing entirely
+    // ══════════════════════════════════════════════════
+    function showDupModal(totalRows, dupes, unique, colMap, fileName) {
+      document.getElementById('dupTotalVal').textContent = totalRows;
+      document.getElementById('dupDupeVal').textContent = dupes.length;
+      document.getElementById('dupUniqueVal').textContent = unique.length;
+      document.getElementById('dupSubtitle').textContent =
+        dupes.length + ' rows appear more than once. Choose how to proceed.';
+
+      // Preview first 5 dupe rows
+      const previewCols = colMap.slice(0, 5);
+      document.getElementById('dupPreviewHead').innerHTML =
+        '<tr>' + previewCols.map(c => '<th>' + escH(c.name) + '</th>').join('') + '</tr>';
+      document.getElementById('dupPreviewBody').innerHTML =
+        dupes.slice(0, 5).map(r =>
+          '<tr>' + previewCols.map(c => '<td>' + escH(String(r[c.name] ?? '')) + '</td>').join('') + '</tr>'
+        ).join('');
+
+      _pendingUploadData = { unique, all: [...unique, ...dupes], fileName };
+      document.getElementById('dupModal').classList.add('open');
+    }
+
+    // FIX: This function was completely missing in original code
+    async function dupDecide(removedupes) {
+      document.getElementById('dupModal').classList.remove('open');
+      if (!_pendingUploadData) return;
+      const rows = removedupes ? _pendingUploadData.unique : _pendingUploadData.all;
+      const fileName = _pendingUploadData.fileName;
+      _pendingUploadData = null;
+
+      const bar = document.getElementById('uploadBar');
+      const status = document.getElementById('uploadStatus');
+      const prog = document.getElementById('uploadProgress');
+
+      if (removedupes) showToast('🧹 Duplicates removed — uploading unique rows', 'info');
+      else showToast('⏭️ Keeping all rows — uploading', 'info');
+
+      await commitUpload(rows, null, fileName, bar, status, prog);
+    }
+
+    async function commitUpload(rows, colMap, fileName, bar, status, prog) {
+      try {
+        bar.style.width = '25%'; status.style.display = 'block'; status.textContent = 'Uploading to cloud…';
+        await sbSetColumns({ cols: columns, headings: fileHeadings });
+        await sbInsertBatch(rows, (saved, tot) => {
+          bar.style.width = (25 + Math.round((saved / tot) * 70)) + '%';
+          status.textContent = 'Uploaded ' + saved.toLocaleString() + ' / ' + tot.toLocaleString() + '…';
+        });
+        bar.style.width = '100%'; status.textContent = '✅ Done!';
+        setTimeout(() => { prog.style.display = 'none'; status.style.display = 'none'; }, 1200);
+
+        totalCount = await sbCountAll();
+        filteredCount = totalCount;
+        searchQuery = '';
+        currentPage = 1;
+        document.getElementById('bossSearch').value = '';
+
+        await renderTable();
+        updateStats();
+        showHeadingBanner('boss');
+
+        document.getElementById('storageBanner').style.display = 'flex';
+        document.getElementById('sbText').textContent = '☁️ ' + totalCount.toLocaleString() + ' records in cloud';
+        document.getElementById('sbSub').textContent = rows.length.toLocaleString() + ' records added. Employees can search immediately.';
+        document.getElementById('statFile').textContent = fileName || 'Uploaded file';
+        document.getElementById('statStatus').textContent = '✅ Cloud';
+        document.getElementById('statStatus').style.color = 'var(--green)';
+        showToast('✅ ' + rows.length.toLocaleString() + ' records uploaded to cloud!', 'success');
+      } catch (ex) {
+        showToast('❌ Upload failed: ' + ex.message, 'error');
+        prog.style.display = 'none'; status.style.display = 'none';
+      }
+    }
+
+    // FIX: Improved duplicate detection (case/whitespace insensitive)
+    function findWithinFileDupes(rows) {
+      const seen = new Map(), unique = [], dupes = [];
+      for (const row of rows) {
+        const key = makeFingerprint(row);
+        if (seen.has(key)) dupes.push(row);
+        else { seen.set(key, true); unique.push(row); }
+      }
+      return { unique, dupes };
+    }
+
+    // FIX: Fingerprint normalizes values for better dupe detection
+    function makeFingerprint(row) {
+      return Object.keys(row).sort()
+        .map(k => String(row[k]).trim().toLowerCase())
+        .join('|||');
+    }
+
+    // ══════════════════════════════════════════════════
+    //  AUTO-DETECT HEADER ROW
+    // ══════════════════════════════════════════════════
+    function autoDetectHeaderRow(allRows) {
+      let bestRow = 1, bestScore = -1;
+      const maxCheck = Math.min(allRows.length, 10);
+      for (let i = 0; i < maxCheck; i++) {
+        const row = allRows[i] || [];
+        let filled = 0, textCount = 0;
+        const uniqueVals = new Set();
+        for (const cell of row) {
+          const v = String(cell).trim();
+          if (!v) continue;
+          filled++;
+          if (isNaN(Number(v)) && v.length < 80) textCount++;
+          uniqueVals.add(v.toLowerCase());
+        }
+        const uniqueRatio = filled > 0 ? uniqueVals.size / filled : 0;
+        const score = filled * 2 + textCount * 3 + (uniqueRatio > 0.8 ? filled * 2 : 0);
+        if (filled >= 2 && uniqueRatio > 0.7 && score > bestScore) {
+          bestScore = score; bestRow = i + 1;
+        }
+      }
+      return bestRow;
+    }
+
+    // ══════════════════════════════════════════════════
+    //  HEADING BANNER
+    // ══════════════════════════════════════════════════
+    function showHeadingBanner(role) {
+      if (!fileHeadings || !fileHeadings.length) return;
+      const bannerId = role === 'boss' ? 'headingBanner' : 'empHeadingBanner';
+      const contentId = role === 'boss' ? 'headingContent' : 'empHeadingContent';
+      const banner = document.getElementById(bannerId);
+      const content = document.getElementById(contentId);
+      if (!banner || !content) return;
+      let html = '';
+      fileHeadings.forEach((rowVals, ri) => {
+        html += '<div class="heading-row">';
+        rowVals.forEach(v => {
+          html += '<div class="heading-chip"><span class="hc-label">Row ' + (ri + 1) + '</span><span class="hc-value">' + escH(v) + '</span></div>';
+        });
+        html += '</div>';
+      });
+      content.innerHTML = html;
+      banner.style.display = 'block';
+    }
+
+    function clearHeadingBanner() {
+      fileHeadings = [];
+      ['headingBanner', 'empHeadingBanner'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+    }
+
+    // ══════════════════════════════════════════════════
+    //  CLEAR ALL DATA
+    // ══════════════════════════════════════════════════
+    async function clearAllData() {
+      if (!confirm('Delete ALL data from cloud? This cannot be undone.')) return;
+      showLoading('Clearing cloud data…', '', 50);
+      try {
+        await sbDeleteAll();
+        columns = []; totalCount = 0; filteredCount = 0;
+        currentPageData = []; _cellViewerData = [];
+        currentPage = 1; searchQuery = ''; fileHeadings = [];
+        clearHeadingBanner();
+        hideLoading();
+        document.getElementById('storageBanner').style.display = 'none';
+        document.getElementById('cleanupInfo').style.display = 'none';
+        document.getElementById('uploadTitle').textContent = 'Upload Excel File';
+        document.getElementById('uploadDesc').textContent = 'Click to browse or drag & drop your .xlsx / .xls / .csv file here';
+        document.getElementById('emptyState').innerHTML =
+          '<div class="icon">📂</div><h3>No Data Loaded</h3><p>Upload an Excel or CSV file above to view and manage your data.</p>';
+        document.getElementById('emptyState').style.display = 'block';
+        document.getElementById('dataTable').style.display = 'none';
+        document.getElementById('pagination').style.display = 'none';
+        updateStats();
+        document.getElementById('statStatus').textContent = 'No Data';
+        document.getElementById('statStatus').style.color = '';
+        document.getElementById('statFile').textContent = 'Upload Excel to begin';
+        showToast('🗑️ All cloud data cleared', 'info');
+      } catch (ex) {
+        hideLoading(); showToast('❌ ' + ex.message, 'error');
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    //  TABLE RENDERING
+    // ══════════════════════════════════════════════════
+    async function renderTable() {
+      const table = document.getElementById('dataTable');
+      const emptyState = document.getElementById('emptyState');
+      const pagination = document.getElementById('pagination');
+      const tbody = document.getElementById('tableBody');
+      buildTableHeaders();
+      table.style.display = '';
+      emptyState.style.display = 'none';
+      pagination.style.display = 'flex';
+      tbody.innerHTML = '<tr><td colspan="99" style="text-align:center;padding:30px;color:var(--text3)"><div style="display:inline-block;width:20px;height:20px;border:2px solid rgba(59,130,246,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite"></div> Loading…</td></tr>';
+      try {
+        const rows = await sbLoadPage(currentPage, pageSize, searchQuery);
+        currentPageData = rows;
+        // FIX: Build flat data cache for cell viewer (avoids encoding issues in onclick attrs)
+        _cellViewerData = rows.map(r => ({ id: r.id, data: extractRowData(r) }));
+
+        if (!rows.length && currentPage === 1) {
+          table.style.display = 'none';
+          emptyState.innerHTML = '<div class="icon">🔍</div><h3>No Matches Found</h3><p>Try a different search term.</p>';
+          emptyState.style.display = 'block';
+          pagination.style.display = 'none';
+          return;
+        }
+
+        const start = (currentPage - 1) * pageSize;
+        const visCols = getVisibleColumns();
+        tbody.innerHTML = rows.map((r, i) => {
+          const rowData = _cellViewerData[i].data;
+          const cells = visCols.map((c, ci) => {
+            const val = String(rowData[c] !== undefined ? rowData[c] : '');
+            // FIX: Use data attributes instead of inline onclick strings to avoid XSS/escaping issues
+            return `<td class="data-cell" data-row="${i}" data-col="${ci}" title="${escAttr(val)}">${escH(val)}</td>`;
+          }).join('');
+          return `<tr><td>${start + i + 1}</td>${cells}<td><div class="action-btns"><button class="btn-icon btn-edit" onclick="openEditModal(${i})">✏️</button><button class="btn-icon btn-del" onclick="deleteRecord(${i})">🗑️</button></div></td></tr>`;
+        }).join('');
+
+        // Single delegated click handler on tbody — much faster than per-cell listeners
+        tbody.onclick = function(e) {
+          const td = e.target.closest('.data-cell');
+          if (!td) return;
+          openCellViewer(parseInt(td.dataset.row), parseInt(td.dataset.col));
+        };
+
+        updatePagination();
+      } catch (ex) {
+        showToast('❌ Load error: ' + ex.message, 'error');
+        tbody.innerHTML = '<tr><td colspan="99" style="text-align:center;padding:30px;color:#fca5a5">Failed to load data</td></tr>';
+      }
+    }
+
+    function buildTableHeaders() {
+      const visCols = getVisibleColumns();
+      document.getElementById('tableHead').innerHTML =
+        '<tr><th>#</th>' + visCols.map(c => `<th title="${escAttr(c)}">${escH(c)}</th>`).join('') + '<th>Actions</th></tr>';
+    }
+
+    // Only show columns with real names — skip auto-generated placeholders like Column1, Column_2 etc
+    function getVisibleColumns() {
+      return columns.filter(c => c && c.trim() !== '' && !/^Column[_\s]?\d+$/i.test(c.trim()));
+    }
+
+    async function filterTable() {
+      searchQuery = document.getElementById('bossSearch').value.trim();
+      currentPage = 1;
+      if (searchQuery) {
+        filteredCount = await sbCountAll(searchQuery);
+      } else {
+        // FIX: Reset filteredCount to totalCount when search is cleared
+        filteredCount = totalCount;
+      }
+      await renderTable();
+      updateStats();
+    }
+
+    function debouncedFilter() {
+      clearTimeout(_filterTimer);
+      _filterTimer = setTimeout(filterTable, 500);
+    }
+
+    function updateStats() {
+      document.getElementById('statTotal').textContent = totalCount.toLocaleString();
+      document.getElementById('statCols').textContent = columns.length;
+      const showing = searchQuery ? filteredCount : totalCount;
+      document.getElementById('statFiltered').textContent = showing.toLocaleString();
+      // FIX: Show contextual label
+      document.getElementById('statFilteredLabel').textContent = searchQuery ? 'Matching "' + searchQuery + '"' : 'All records';
+    }
+
+    function updatePagination() {
+      // FIX: Always use the correct count based on whether we're searching
+      const total = searchQuery ? filteredCount : totalCount;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const start = (currentPage - 1) * pageSize + 1;
+      const end = Math.min(currentPage * pageSize, total);
+      document.getElementById('paginationInfo').textContent =
+        'Showing ' + start.toLocaleString() + '–' + end.toLocaleString() + ' of ' + total.toLocaleString() + ' records';
+
+      const btns = document.getElementById('paginationBtns');
+      let html = `<button class="page-btn" onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹ Prev</button>`;
+      const pages = [1];
+      for (let i = Math.max(2, currentPage - 2); i <= Math.min(totalPages - 1, currentPage + 2); i++) pages.push(i);
+      if (totalPages > 1) pages.push(totalPages);
+      let prev = 0;
+      pages.forEach(p => {
+        if (p - prev > 1) html += '<span style="color:var(--text3);padding:0 4px">…</span>';
+        html += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+        prev = p;
+      });
+      html += `<button class="page-btn" onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next ›</button>`;
+      btns.innerHTML = html;
+    }
+
+    async function goPage(p) {
+      const total = searchQuery ? filteredCount : totalCount;
+      const tp = Math.max(1, Math.ceil(total / pageSize));
+      if (p < 1 || p > tp) return;
+      currentPage = p;
+      await renderTable();
+      document.getElementById('tableScroll').scrollTop = 0;
+    }
+
+    async function changePageSize() {
+      pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+      currentPage = 1;
+      await renderTable();
+    }
+
+    // ══════════════════════════════════════════════════
+    //  ADD / EDIT / DELETE
+    // ══════════════════════════════════════════════════
+    function openAddModal() {
+      if (!columns.length) { showToast('Upload a file first', 'error'); return; }
+      editingId = null;
+      document.getElementById('modalTitle').textContent = '➕ Add New Record';
+      buildModalFields({});
+      document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    function openEditModal(i) {
+      const row = _cellViewerData[i];
+      if (!row) return;
+      editingId = row.id;
+      document.getElementById('modalTitle').textContent = '✏️ Edit Record';
+      buildModalFields(row.data);
+      document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    // FIX: Use data attributes + JS to set values instead of inline HTML attributes (avoids escaping bugs)
+    function buildModalFields(row) {
+      const container = document.getElementById('modalFields');
+      container.innerHTML = columns.map(c => {
+        const val = String(row[c] !== undefined ? row[c] : '');
+        const isLong = val.length > 60 || val.includes('\n');
+        const id = 'mf_' + cid(c);
+        if (isLong) {
+          return `<div class="modal-field wide"><label>${escH(c)}</label><textarea id="${id}" rows="4"></textarea></div>`;
+        }
+        return `<div class="modal-field"><label>${escH(c)}</label><input type="text" id="${id}"/></div>`;
+      }).join('');
+
+      // FIX: Set values via JS (not HTML attributes) to avoid any escaping issues
+      columns.forEach(c => {
+        const val = String(row[c] !== undefined ? row[c] : '');
+        const el = document.getElementById('mf_' + cid(c));
+        if (el) el.value = val;
+      });
+    }
+
+    function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+    async function saveRecord() {
+      const newRow = {};
+      // FIX: Detect column name collisions in cid() — use column index as tiebreaker
+      columns.forEach((c, idx) => {
+        const el = document.getElementById('mf_' + cid(c));
+        // Fallback: try indexed id if name-based id not found (collision guard)
+        const elAlt = document.getElementById('mf_idx_' + idx);
+        newRow[c] = (el ? el.value : '') || (elAlt ? elAlt.value : '');
+      });
+      try {
+        if (editingId === null) {
+          await sbAddOne(newRow);
+          totalCount++;
+          filteredCount = searchQuery ? filteredCount : totalCount;
+          showToast('✅ Record added to cloud', 'success');
+        } else {
+          await sbUpdateOne(editingId, newRow);
+          showToast('✅ Record updated in cloud', 'success');
+        }
+        closeModal();
+        updateStats();
+        await renderTable();
+        document.getElementById('sbText').textContent = '☁️ ' + totalCount.toLocaleString() + ' records in cloud';
+      } catch (ex) {
+        showToast('❌ ' + ex.message, 'error');
+      }
+    }
+
+    async function deleteRecord(i) {
+      if (!confirm('Delete this record from cloud? This cannot be undone.')) return;
+      const row = _cellViewerData[i];
+      if (!row) return;
+      try {
+        await sbDeleteOne(row.id);
+        totalCount--;
+        filteredCount = Math.max(0, filteredCount - 1);
+        showToast('🗑️ Record deleted', 'info');
+        updateStats();
+        // FIX: If page is now empty (last item on last page), go back one page
+        const total = searchQuery ? filteredCount : totalCount;
+        const maxPage = Math.max(1, Math.ceil(total / pageSize));
+        if (currentPage > maxPage) currentPage = maxPage;
+        await renderTable();
+      } catch (ex) {
+        showToast('❌ ' + ex.message, 'error');
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    //  EXPORT
+    // ══════════════════════════════════════════════════
+    async function exportData() {
+      if (!totalCount) { showToast('No data to export', 'error'); return; }
+      showLoading('Exporting…', 'Fetching records from cloud', 10);
+      try {
+        const all = [], SIZE = 1000;
+        const tot = searchQuery ? filteredCount : totalCount;
+        for (let p = 0; p * SIZE < tot; p++) {
+          let q = sb.from('records').select('data').order('id');
+          if (searchQuery) q = q.filter('data::text', 'ilike', `%${searchQuery}%`);
+          const { data } = await q.range(p * SIZE, (p + 1) * SIZE - 1);
+          (data || []).forEach(r => all.push(extractRowData(r)));
+          setLoadingProgress(Math.round((all.length / tot) * 90), 'Fetching…');
+        }
+        hideLoading();
+        const ws = XLSX.utils.json_to_sheet(all);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Data');
+        XLSX.writeFile(wb, 'DataPortal_Export_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+        showToast('📥 Export downloaded!', 'success');
+      } catch (ex) {
+        hideLoading(); showToast('❌ Export failed: ' + ex.message, 'error');
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    //  EMPLOYEE SEARCH
+    // ══════════════════════════════════════════════════
+    async function empSearch() {
+      const q = document.getElementById('empSearchInput').value.trim();
+      if (!q) { showToast('Enter a name or keyword to search', 'error'); return; }
+      const searching = document.getElementById('empSearching');
+      const container = document.getElementById('empResults');
+      searching.style.display = 'block';
+      container.innerHTML = '';
+      try {
+        const results = await sbSearch(q, 50);
+        searching.style.display = 'none';
+
+        // Load columns if needed
+        if (!columns.length) {
+          const cm = await sbGetColumns();
+          columns = cm.cols || [];
+          fileHeadings = cm.headings || [];
+          showHeadingBanner('employee');
+        }
+
+        if (!results.length) {
+          container.innerHTML = '<div class="empty-state"><div class="icon">😕</div><h3>No Results Found</h3><p>No record matches <strong>' + escH(q) + '</strong>. Try a different term.</p></div>';
+          return;
+        }
+
+        // FIX: Build result cards safely — never use escH() output inside HTML attribute
+        const resultHeader = document.createElement('p');
+        resultHeader.style.cssText = 'font-size:12px;color:var(--text3);margin-bottom:14px';
+        resultHeader.innerHTML = results.length + ' result(s) for "<strong style="color:var(--text)">' + escH(q) + '</strong>"';
+        container.appendChild(resultHeader);
+
+        results.forEach((d, idx) => {
+          const keys = Object.keys(d);
+          const card = document.createElement('div');
+          card.className = 'emp-result-card';
+
+          // FIX: empLabel returns plain text now; set via textContent
+          const labelText = empLabelText(d);
+          card.innerHTML = `<div class="card-header"><div class="num">${idx + 1}</div><h4></h4></div><div class="card-body"><div class="fields-grid"></div></div>`;
+          card.querySelector('h4').textContent = labelText;
+
+          const grid = card.querySelector('.fields-grid');
+          keys.forEach(k => {
+            const val = String(d[k] !== undefined ? d[k] : '');
+            if (!val.trim()) return;
+            const isLong = val.length > 80 || val.includes('\n');
+            const item = document.createElement('div');
+            item.className = 'field-item' + (isLong ? ' full-block' : '');
+            const label = document.createElement('div');
+            label.className = 'field-label';
+            label.textContent = k;
+            const value = document.createElement('div');
+            value.className = 'field-value';
+            value.textContent = val;
+            item.appendChild(label);
+            item.appendChild(value);
+            grid.appendChild(item);
+          });
+
+          if (grid.children.length === 0) return; // Skip empty result
+          container.appendChild(card);
+        });
+
+      } catch (ex) {
+        searching.style.display = 'none';
+        showToast('❌ Search error: ' + ex.message, 'error');
+      }
+    }
+
+    // FIX: Returns PLAIN TEXT (not HTML) — caller uses textContent
+    function empLabelText(row) {
+      const keys = Object.keys(row || {});
+      const nameKey = keys.find(k => /name|full|title/i.test(k));
+      if (nameKey && row[nameKey]) {
+        const v = String(row[nameKey]).trim().replace(/^(Account\s*Title|Name|Full\s*Name)\s*:\s*/i, '');
+        if (v) return v;
+      }
+      for (const k of keys) {
+        const v = String(row[k] || '').trim();
+        if (v) return v;
+      }
+      return 'Record';
+    }
+
+    // ══════════════════════════════════════════════════
+    //  CELL VIEWER
+    // ══════════════════════════════════════════════════
+    // FIX: Takes row/col indices (not column name strings) — avoids all escaping issues
+    function openCellViewer(rowIdx, colIdx) {
+      const row = _cellViewerData[rowIdx];
+      if (!row) return;
+      const colName = getVisibleColumns()[colIdx];
+      if (colName === undefined) return;
+      const val = String(row.data[colName] !== undefined ? row.data[colName] : '');
+      // Use textContent to set values safely
+      document.getElementById('cvColName').textContent = colName;
+      document.getElementById('cvBody').textContent = val;
+      document.getElementById('cellViewer').classList.add('open');
+    }
+
+    function closeCellViewer() { document.getElementById('cellViewer').classList.remove('open'); }
+
+    // ══════════════════════════════════════════════════
+    //  HELPERS
+    // ══════════════════════════════════════════════════
+    // FIX: escH for innerHTML content
+    function escH(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // FIX: escAttr specifically for HTML attribute values (more strict)
+    function escAttr(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '&#10;')
+        .replace(/\r/g, '&#13;');
+    }
+
+    // FIX: cid() with length limit + more robust sanitization
+    function cid(s) {
+      return ('f_' + String(s).replace(/[^a-zA-Z0-9]/g, '_')).slice(0, 50);
+    }
+
+    function showToast(msg, type = 'info') {
+      const c = document.getElementById('toastContainer');
+      const el = document.createElement('div');
+      el.className = 'toast ' + type;
+      el.textContent = msg; // FIX: use textContent not innerHTML for safety
+      c.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transition = 'opacity .4s';
+        setTimeout(() => el.remove(), 400);
+      }, 3500);
+    }
+
+    // ══════════════════════════════════════════════════
+    //  EVENT LISTENERS
+    // ══════════════════════════════════════════════════
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        closeCellViewer();
+        closeModal();
+        document.getElementById('dupModal').classList.remove('open');
+      }
+    });
+
+    document.getElementById('modalOverlay').addEventListener('click', function (e) {
+      if (e.target === this) closeModal();
+    });
+
+    document.getElementById('cellViewer').addEventListener('click', function (e) {
+      if (e.target === this) closeCellViewer();
+    });
+
+    document.getElementById('headerRowSelect').addEventListener('change', function () {
+      document.getElementById('customColsWrap').style.display = this.value === '0' ? 'block' : 'none';
+    });
+
+    // FIX: Prevent duplicate file input triggers (clear value so same file can be re-selected)
+    document.getElementById('fileInput').addEventListener('click', function () {
+      this.value = '';
+    });
+
+    // Check saved theme
+    if (localStorage.getItem('leadsbpo-theme') === 'light') {
+      document.documentElement.classList.add('light-mode');
+      window.addEventListener('DOMContentLoaded', () => {
+        const tb = document.getElementById('themeBtn');
+        if(tb) tb.textContent = '🌙 Switch to Dark Mode';
+      });
+    }
+  </script>
+
+  <!-- ── SETTINGS SIDEBAR ── -->
+  <div id="settingsSidebar" class="sidebar">
+    <div class="sidebar-header">
+      <h3>⚙️ Settings</h3>
+      <button class="btn-icon" onclick="toggleSettings()" style="font-size:16px;">✕</button>
+    </div>
+    <div class="sidebar-body">
+      <div class="setting-item">
+        <label>Theme</label>
+        <button class="btn btn-outline" onclick="toggleTheme()" id="themeBtn">☀️ Switch to Light Mode</button>
+      </div>
+      <div id="credentialsSection">
+        <hr class="divider" />
+        <div class="settings-tabs">
+          <button class="s-tab active" onclick="switchSettingsTab('admin')">Admin</button>
+          <button class="s-tab" onclick="switchSettingsTab('employees')">Employees</button>
+        </div>
+        
+        <!-- Admin Settings -->
+        <div id="adminSettingsView">
+          <div class="setting-item">
+            <label>Change Admin Credentials</label>
+            <input type="text" id="newAdminUser" placeholder="New Admin Username" class="styled-input" style="margin-bottom: 12px;" autocomplete="off" />
+            <input type="password" id="newAdminPass" placeholder="New Admin Password" class="styled-input" style="margin-bottom: 12px;" autocomplete="new-password" />
+            <input type="password" id="confirmAdminPass" placeholder="Confirm Password" class="styled-input" />
+          </div>
+          <button class="btn btn-primary" style="width: 100%; justify-content:center;" onclick="updateAdminCreds()">💾 Save Admin Changes</button>
+        </div>
+
+        <!-- Employee Settings -->
+        <div id="empSettingsView" style="display:none;">
+          <div class="setting-item">
+            <label>Manage Employees</label>
+            <div id="employeeList" style="display:flex; flex-direction:column; gap: 10px;">
+              <!-- Dynamically populated -->
+            </div>
+            <button class="btn btn-outline" style="margin-top: 12px;" onclick="addNewEmployeeRow()">➕ Add Employee</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSettings()"></div>
+</body>
+
+</html>
