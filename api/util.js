@@ -8,8 +8,14 @@ const SKEY = process.env.SUPABASE_SERVICE_KEY;
 // Create Supabase client using Service Role Key to bypass RLS in the backend
 export const sb = createClient(SURL, SKEY || '');
 
-if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable must be set in production.');
+// Warn loudly in server logs if JWT_SECRET is missing, but do NOT throw at
+// module level — a module-level throw crashes the entire serverless function
+// before any try/catch can respond with proper JSON, causing raw-text 500s.
+if (!process.env.JWT_SECRET) {
+  console.error(
+    '[util] WARNING: JWT_SECRET environment variable is not set. ' +
+    'Authentication will fail. Set this variable in your deployment environment.'
+  );
 }
 
 export const JWT_SECRET = process.env.JWT_SECRET;
