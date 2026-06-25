@@ -1803,8 +1803,13 @@
           <div id="empHeadingContent"></div>
         </div>
         <div class="emp-search-box">
-          <h2>🔍 Search Records</h2>
-          <p>Enter a name or keyword to look up records. Results are read-only.</p>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h2>🔍 Search Records</h2>
+              <p style="margin-top:4px;">Enter a name or keyword to look up records. Results are read-only.</p>
+            </div>
+            <button class="btn btn-primary" id="empAddLeadBtn" onclick="openEmpLeadModal()" style="white-space:nowrap;">➕ Add Lead</button>
+          </div>
           <div class="emp-search-wrap">
             <span class="sicon">🔍</span>
             <input type="text" id="empSearchInput" placeholder="Type name or number…"
@@ -1831,13 +1836,25 @@
   </div>
 
   <!-- ── MODAL ── -->
-  <div class="modal-overlay" id="modalOverlay">
-    <div class="modal">
+  <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal" style="max-width:680px;">
       <h3 id="modalTitle">➕ Add New Record</h3>
       <div class="modal-fields" id="modalFields"></div>
       <div class="modal-actions">
         <button class="btn btn-danger" onclick="closeModal()">✖ Cancel</button>
         <button class="btn btn-primary" onclick="saveRecord()">💾 Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EMPLOYEE LEAD MODAL ── -->
+  <div class="modal-overlay" id="empLeadModalOverlay" onclick="if(event.target===this)closeEmpLeadModal()">
+    <div class="modal" style="max-width:680px;">
+      <h3>➕ Submit New Lead</h3>
+      <div class="modal-fields" id="empLeadFields"></div>
+      <div class="modal-actions">
+        <button class="btn btn-danger" onclick="closeEmpLeadModal()">✖ Cancel</button>
+        <button class="btn btn-primary" id="empLeadSaveBtn" onclick="saveEmpLead()">💾 Submit Lead</button>
       </div>
     </div>
   </div>
@@ -2781,8 +2798,36 @@
     // ══════════════════════════════════════════════════
     //  ADD / EDIT / DELETE
     // ══════════════════════════════════════════════════
+    // ── Fixed lead field definitions (shared by boss + employee modals) ──
+    const LEAD_FIELDS = [
+      { key: 'Name',                       wide: false },
+      { key: 'Address',                    wide: true  },
+      { key: 'Email',                      wide: false },
+      { key: 'Phone No',                   wide: false },
+      { key: 'Alternate No',               wide: false },
+      { key: 'Text Messages',              wide: false },
+      { key: 'DOB',                        wide: false },
+      { key: 'Smoker or Non-Smoker',       wide: false },
+      { key: 'Height',                     wide: false },
+      { key: 'Weight',                     wide: false },
+      { key: 'Marital Status',             wide: false },
+      { key: 'Born in',                    wide: false },
+      { key: 'Health Condition',           wide: true  },
+      { key: 'Medications',                wide: true  },
+      { key: 'Dr Name',                    wide: false },
+      { key: 'Carrier/Face Amount/Premium',wide: true  },
+      { key: 'Policy Type',                wide: false },
+      { key: 'Primary Beneficiary Name',   wide: false },
+      { key: 'Secondary Beneficiary Name', wide: false },
+      { key: 'Source of Income',           wide: false },
+      { key: 'SSN',                        wide: false },
+      { key: 'Bank Name',                  wide: false },
+      { key: 'Routing No',                 wide: false },
+      { key: 'Account No',                 wide: false },
+      { key: 'Draft Date',                 wide: false },
+    ];
+
     function openAddModal() {
-      if (!columns.length) { showToast('Upload a file first', 'error'); return; }
       editingId = null;
       document.getElementById('modalTitle').textContent = '➕ Add New Record';
       buildModalFields({});
@@ -2798,38 +2843,39 @@
       document.getElementById('modalOverlay').classList.add('open');
     }
 
-    // FIX: Use data attributes + JS to set values instead of inline HTML attributes (avoids escaping bugs)
-    function buildModalFields(row) {
-      const container = document.getElementById('modalFields');
-      container.innerHTML = columns.map(c => {
-        const val = String(row[c] !== undefined ? row[c] : '');
-        const isLong = val.length > 60 || val.includes('\n');
-        const id = 'mf_' + cid(c);
-        if (isLong) {
-          return `<div class="modal-field wide"><label>${escH(c)}</label><textarea id="${id}" rows="4"></textarea></div>`;
-        }
-        return `<div class="modal-field"><label>${escH(c)}</label><input type="text" id="${id}"/></div>`;
+    // Renders the fixed LEAD_FIELDS template into any given container element
+    function renderLeadFields(container, values) {
+      values = values || {};
+      container.innerHTML = LEAD_FIELDS.map(f => {
+        const id = 'lf_' + cid(f.key);
+        const cls = f.wide ? 'modal-field wide' : 'modal-field';
+        return `<div class="${cls}"><label>${escH(f.key)}</label><input type="text" id="${id}" autocomplete="off"/></div>`;
       }).join('');
-
-      // FIX: Set values via JS (not HTML attributes) to avoid any escaping issues
-      columns.forEach(c => {
-        const val = String(row[c] !== undefined ? row[c] : '');
-        const el = document.getElementById('mf_' + cid(c));
-        if (el) el.value = val;
+      // Set values safely via JS
+      LEAD_FIELDS.forEach(f => {
+        const el = container.querySelector('#lf_' + cid(f.key));
+        if (el) el.value = String(values[f.key] !== undefined ? values[f.key] : '');
       });
+    }
+
+    // Read all LEAD_FIELDS values from a container back into a plain object
+    function readLeadFields(container) {
+      const obj = {};
+      LEAD_FIELDS.forEach(f => {
+        const el = container.querySelector('#lf_' + cid(f.key));
+        obj[f.key] = el ? el.value.trim() : '';
+      });
+      return obj;
+    }
+
+    function buildModalFields(values) {
+      renderLeadFields(document.getElementById('modalFields'), values);
     }
 
     function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 
     async function saveRecord() {
-      const newRow = {};
-      // FIX: Detect column name collisions in cid() — use column index as tiebreaker
-      columns.forEach((c, idx) => {
-        const el = document.getElementById('mf_' + cid(c));
-        // Fallback: try indexed id if name-based id not found (collision guard)
-        const elAlt = document.getElementById('mf_idx_' + idx);
-        newRow[c] = (el ? el.value : '') || (elAlt ? elAlt.value : '');
-      });
+      const newRow = readLeadFields(document.getElementById('modalFields'));
       try {
         if (editingId === null) {
           await sbAddOne(newRow);
@@ -2846,6 +2892,33 @@
         document.getElementById('sbText').textContent = '☁️ ' + totalCount.toLocaleString() + ' records in cloud';
       } catch (ex) {
         showToast('❌ ' + ex.message, 'error');
+      }
+    }
+
+    // ── Employee lead modal ──
+    function openEmpLeadModal() {
+      renderLeadFields(document.getElementById('empLeadFields'), {});
+      document.getElementById('empLeadModalOverlay').classList.add('open');
+    }
+
+    function closeEmpLeadModal() {
+      document.getElementById('empLeadModalOverlay').classList.remove('open');
+    }
+
+    async function saveEmpLead() {
+      const lead = readLeadFields(document.getElementById('empLeadFields'));
+      const btn = document.getElementById('empLeadSaveBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Submitting…';
+      try {
+        await apiCall('/api/records?action=submitLead', 'POST', lead);
+        showToast('✅ Lead submitted successfully!', 'success');
+        closeEmpLeadModal();
+      } catch (ex) {
+        showToast('❌ ' + ex.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Submit Lead';
       }
     }
 

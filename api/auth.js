@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { serialize } from 'cookie';
-import { sb, JWT_SECRET, jsonRes, getSession } from './util.js';
+import { sb, JWT_SECRET, jsonRes, getSession, checkRateLimit } from './util.js';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -18,6 +18,17 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    // Rate limit: max 3 login attempts per IP per minute
+    const ip =
+      (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+      req.socket?.remoteAddress ||
+      'unknown';
+
+    if (!checkRateLimit(ip, 3, 60_000)) {
+      res.setHeader('Retry-After', '60');
+      return jsonRes(res, 429, { error: 'Too many login attempts. Please try again in a minute.' });
+    }
+
     const { username, password, selectedRole } = req.body;
     if (!username || !password || !selectedRole) {
       return jsonRes(res, 400, { error: 'Missing credentials' });

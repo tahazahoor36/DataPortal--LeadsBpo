@@ -46,9 +46,8 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      // Employees cannot write or delete, except if business logic allows it? 
-      // Previously employees could not modify records, let's enforce that.
-      if (session.type !== 'boss' && action !== 'search') {
+      // Employees can only use: search, submitLead
+      if (session.type !== 'boss' && action !== 'search' && action !== 'submitLead') {
         return jsonRes(res, 403, { error: 'Read only access' });
       }
 
@@ -59,25 +58,47 @@ export default async function handler(req, res) {
       }
 
       if (action === 'insert') {
-        // Bulk insert
         const { rows } = req.body;
-        const CHUNK_SIZE = 500;
-        let inserted = 0;
-        for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
-          const chunk = rows.slice(i, i + CHUNK_SIZE).map(r => ({ data: r }));
-          const { error } = await sb.from('records').insert(chunk);
-          if (error) throw error;
-          inserted += chunk.length;
+
+        // Server-side enforcement: reject oversized batches
+        const MAX_BATCH_SIZE = 500;
+        if (!Array.isArray(rows)) {
+          return jsonRes(res, 400, { error: 'rows must be an array.' });
         }
-        return jsonRes(res, 200, { success: true, inserted });
+        if (rows.length > MAX_BATCH_SIZE) {
+          return jsonRes(res, 400, {
+            error: `Batch too large. Maximum ${MAX_BATCH_SIZE} rows per request, got ${rows.length}.`
+          });
+        }
+
+        const records = rows.map(r => ({ data: r }));
+        const { error } = await sb.from('records').insert(records);
+        if (error) throw error;
+        return jsonRes(res, 200, { success: true, inserted: rows.length });
       }
+
 
       if (action === 'addOne') {
         const { data, error } = await sb.from('records').insert({ data: req.body }).select('id').single();
         if (error) throw error;
         return jsonRes(res, 200, { id: data.id });
       }
-    }
+
+      // Employee lead submission — saved to a SEPARATE table (employee_leads)
+      if (action === 'submitLead') {
+        const lead = req.body;
+        if (!lead || typeof lead !== 'object') {
+          return jsonRes(res, 400, { error: 'Invalid lead data.' });
+        }
+        const { data, error } = await sb
+          .from('employee_leads')
+          .insert({ data: lead, submitted_by: session.username })
+          .select('id')
+          .single();
+        if (error) throw error;
+        return jsonRes(res, 200, { success: true, id: data.id });
+      }
+    } // end POST
 
     if (req.method === 'PUT') {
       if (session.type !== 'boss') return jsonRes(res, 403, { error: 'Forbidden' });
@@ -108,6 +129,7 @@ export default async function handler(req, res) {
 
     return jsonRes(res, 404, { error: 'Action not found' });
   } catch (e) {
-    return jsonRes(res, 500, { error: e.message });
+    console.error('[records] Unhandled error:', e);
+    return jsonRes(res, 500, { error: 'An unexpected server error occurred.' });
   }
 }

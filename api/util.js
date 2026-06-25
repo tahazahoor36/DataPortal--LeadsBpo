@@ -8,7 +8,11 @@ const SKEY = process.env.SUPABASE_SERVICE_KEY;
 // Create Supabase client using Service Role Key to bypass RLS in the backend
 export const sb = createClient(SURL, SKEY || '');
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production';
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable must be set in production.');
+}
+
+export const JWT_SECRET = process.env.JWT_SECRET;
 
 export function getSession(req) {
   try {
@@ -24,4 +28,35 @@ export function getSession(req) {
 
 export function jsonRes(res, status, data) {
   res.status(status).json(data);
+}
+
+// ---------------------------------------------------------------------------
+// In-memory rate limiter (per-IP, sliding fixed-window)
+// ---------------------------------------------------------------------------
+const rateLimitStore = new Map(); // ip -> { count, windowStart }
+
+/**
+ * Returns true (and increments the counter) when the IP is within the limit.
+ * Returns false when the IP has exceeded the limit for the current window.
+ *
+ * @param {string} ip         - Client IP address
+ * @param {number} maxAttempts - Maximum allowed attempts per window (default 3)
+ * @param {number} windowMs   - Window duration in milliseconds (default 60 000)
+ */
+export function checkRateLimit(ip, maxAttempts = 3, windowMs = 60_000) {
+  const now = Date.now();
+  const entry = rateLimitStore.get(ip);
+
+  if (!entry || now - entry.windowStart >= windowMs) {
+    // First request or window has expired — start a fresh window
+    rateLimitStore.set(ip, { count: 1, windowStart: now });
+    return true; // allowed
+  }
+
+  if (entry.count >= maxAttempts) {
+    return false; // blocked
+  }
+
+  entry.count += 1;
+  return true; // allowed
 }
