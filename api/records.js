@@ -43,6 +43,14 @@ export default async function handler(req, res) {
         if (error) throw error;
         return jsonRes(res, 200, data || []);
       }
+
+      if (action === 'empLeadCount') {
+        const { count, error } = await sb
+          .from('employee_leads')
+          .select('*', { count: 'exact', head: true });
+        if (error) throw error;
+        return jsonRes(res, 200, { count: count || 0 });
+      }
     }
 
     if (req.method === 'POST') {

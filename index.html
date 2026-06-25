@@ -1698,9 +1698,9 @@
             <div class="sub">All rows in cloud</div>
           </div>
           <div class="stat-card">
-            <div class="label">Columns</div>
-            <div class="value" id="statCols" style="color:var(--accent2)">0</div>
-            <div class="sub">Fields detected</div>
+            <div class="label">Employee Leads</div>
+            <div class="value" id="statEmpLeads" style="color:var(--yellow)">0</div>
+            <div class="sub">Submitted by staff</div>
           </div>
           <div class="stat-card">
             <div class="label">Showing</div>
@@ -1948,6 +1948,15 @@
       return data.count || 0;
     }
 
+    async function sbCountEmpLeads() {
+      try {
+        const data = await apiCall('/api/records?action=empLeadCount');
+        return data.count || 0;
+      } catch (e) {
+        return 0; // table may not exist yet
+      }
+    }
+
     async function sbLoadPage(page, size, q = '') {
       return await apiCall('/api/records?action=page&page=' + page + '&size=' + size + '&q=' + encodeURIComponent(q));
     }
@@ -2101,8 +2110,10 @@
         const colsMeta = await sbGetColumns();
         columns = colsMeta.cols || [];
         fileHeadings = colsMeta.headings || [];
-        totalCount = await sbCountAll();
+        const [cnt, empLeadCnt] = await Promise.all([sbCountAll(), sbCountEmpLeads()]);
+        totalCount = cnt;
         filteredCount = totalCount;
+        document.getElementById('statEmpLeads').textContent = empLeadCnt.toLocaleString();
         setLoadingProgress(80, 'Ready!');
         await new Promise(r => setTimeout(r, 300));
         hideLoading();
@@ -2914,6 +2925,12 @@
         await apiCall('/api/records?action=submitLead', 'POST', lead);
         showToast('✅ Lead submitted successfully!', 'success');
         closeEmpLeadModal();
+        // Live-update the Employee Leads counter on the admin stat card if visible
+        const statEl = document.getElementById('statEmpLeads');
+        if (statEl) {
+          const current = parseInt(statEl.textContent.replace(/,/g, '')) || 0;
+          statEl.textContent = (current + 1).toLocaleString();
+        }
       } catch (ex) {
         showToast('❌ ' + ex.message, 'error');
       } finally {
