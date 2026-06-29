@@ -2536,6 +2536,11 @@
       await commitUpload(rows, null, fileName, bar, status, prog);
     }
 
+    function safeSet(id, prop, val) {
+      const el = document.getElementById(id);
+      if (el) el[prop] = val;
+    }
+
     async function commitUpload(rows, colMap, fileName, bar, status, prog) {
       try {
         bar.style.width = '25%'; status.style.display = 'block'; status.textContent = 'Uploading to cloud…';
@@ -2551,22 +2556,26 @@
         filteredCount = totalCount;
         searchQuery = '';
         currentPage = 1;
-        document.getElementById('bossSearch').value = '';
+        safeSet('bossSearch', 'value', '');
 
         await renderTable();
         updateStats();
         showHeadingBanner('boss');
 
-        document.getElementById('storageBanner').style.display = 'flex';
-        document.getElementById('sbText').textContent = '☁️ ' + totalCount.toLocaleString() + ' records in cloud';
-        document.getElementById('sbSub').textContent = rows.length.toLocaleString() + ' records added. Employees can search immediately.';
-        document.getElementById('statFile').textContent = fileName || 'Uploaded file';
-        document.getElementById('statStatus').textContent = '✅ Cloud';
-        document.getElementById('statStatus').style.color = 'var(--green)';
+        const storageBanner = document.getElementById('storageBanner');
+        if (storageBanner) storageBanner.style.display = 'flex';
+        safeSet('sbText', 'textContent', '☁️ ' + totalCount.toLocaleString() + ' records in cloud');
+        safeSet('sbSub', 'textContent', rows.length.toLocaleString() + ' records added. Employees can search immediately.');
+        safeSet('statFile', 'textContent', fileName || 'Uploaded file');
+        safeSet('statStatus', 'textContent', '✅ Cloud');
+        const statStatusEl = document.getElementById('statStatus');
+        if (statStatusEl) statStatusEl.style.color = 'var(--green)';
         showToast('✅ ' + rows.length.toLocaleString() + ' records uploaded to cloud!', 'success');
       } catch (ex) {
+        console.error('[upload] commitUpload error:', ex);
         showToast('❌ Upload failed: ' + ex.message, 'error');
-        prog.style.display = 'none'; status.style.display = 'none';
+        if (prog) prog.style.display = 'none';
+        if (status) status.style.display = 'none';
       }
     }
 
@@ -2759,24 +2768,24 @@
     }
 
     function updateStats() {
-      document.getElementById('statTotal').textContent = totalCount.toLocaleString();
-      document.getElementById('statCols').textContent = columns.length;
+      safeSet('statTotal', 'textContent', totalCount.toLocaleString());
+      safeSet('statCols', 'textContent', String(columns.length));
       const showing = searchQuery ? filteredCount : totalCount;
-      document.getElementById('statFiltered').textContent = showing.toLocaleString();
-      // FIX: Show contextual label
-      document.getElementById('statFilteredLabel').textContent = searchQuery ? 'Matching "' + searchQuery + '"' : 'All records';
+      safeSet('statFiltered', 'textContent', showing.toLocaleString());
+      safeSet('statFilteredLabel', 'textContent', searchQuery ? 'Matching "' + searchQuery + '"' : 'All records');
     }
 
     function updatePagination() {
-      // FIX: Always use the correct count based on whether we're searching
       const total = searchQuery ? filteredCount : totalCount;
       const totalPages = Math.max(1, Math.ceil(total / pageSize));
       const start = (currentPage - 1) * pageSize + 1;
       const end = Math.min(currentPage * pageSize, total);
-      document.getElementById('paginationInfo').textContent =
+      const paginationInfo = document.getElementById('paginationInfo');
+      if (paginationInfo) paginationInfo.textContent =
         'Showing ' + start.toLocaleString() + '–' + end.toLocaleString() + ' of ' + total.toLocaleString() + ' records';
 
       const btns = document.getElementById('paginationBtns');
+      if (!btns) return;
       let html = `<button class="page-btn" onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹ Prev</button>`;
       const pages = [1];
       for (let i = Math.max(2, currentPage - 2); i <= Math.min(totalPages - 1, currentPage + 2); i++) pages.push(i);
